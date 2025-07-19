@@ -11,9 +11,12 @@
 #
 
 
-cmake_minimum_required(VERSION 3.5)
-project(zmqpp)
+cmake_minimum_required(VERSION 3.5...3.10)
+project(zmqpp 
+  VERSION 4.3.0
+  DESCRIPTION "C++ binding for ZeroMQ")
 enable_testing()
+include(CMakePackageConfigHelpers)
 
 # prepare C++11
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
@@ -115,11 +118,11 @@ if (ZMQPP_BUILD_STATIC)
       # If libzmq was not installed through CMake, the static binary is libzmq.a not libzmq-static.a
       find_library(ZEROMQ_LIBRARY_STATIC libzmq.a PATHS ${ZEROMQ_LIB_DIR})
     endif()
-    target_link_libraries( zmqpp-static ${ZEROMQ_LIBRARY_STATIC})
+    target_link_libraries( zmqpp-static ${ZEROMQ_LIBRARY_STATIC} gnutls)
   else()
     # libzmq-static is the name of the target from
     # libzmq's CMake
-    target_link_libraries(zmqpp-static libzmq-static)
+    target_link_libraries(zmqpp-static libzmq-static gnutls)
   endif()
   list( APPEND INSTALL_TARGET_LIST zmqpp-static)
   set( LIB_TO_LINK_TO_EXAMPLES zmqpp-static )
@@ -130,11 +133,11 @@ if (ZMQPP_BUILD_SHARED)
   add_library( zmqpp SHARED ${LIBZMQPP_SOURCES})
   if (NOT ZMQPP_LIBZMQ_CMAKE)
     find_library(ZEROMQ_LIBRARY_SHARED ${ZMQPP_LIBZMQ_NAME_SHARED} PATHS ${ZEROMQ_LIB_DIR})
-    target_link_libraries( zmqpp ${ZEROMQ_LIBRARY_SHARED} )
+    target_link_libraries( zmqpp ${ZEROMQ_LIBRARY_SHARED} gnutls)
   else()
     # libzmq is the name of the target from
     # libzmq's CMake
-    target_link_libraries(zmqpp libzmq)
+    target_link_libraries(zmqpp libzmq gnutls)
   endif()
   list( APPEND INSTALL_TARGET_LIST zmqpp)
   set( LIB_TO_LINK_TO_EXAMPLES zmqpp )
@@ -231,17 +234,49 @@ if( ZMQPP_BUILD_TESTS )
   add_test( zmqpp-test zmqpp-test-runner --log-level=test-suite )
 endif()
 
-
 # Install
 # -------
 install(TARGETS ${INSTALL_TARGET_LIST}
-        RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib)
+    EXPORT zmqppTargets
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    INCLUDES DESTINATION include
+)
 
-install(DIRECTORY src/zmqpp DESTINATION include/
-        FILES_MATCHING PATTERN "*.hpp")
+install(DIRECTORY src/zmqpp/
+    DESTINATION include/zmqpp
+    FILES_MATCHING PATTERN "*.hpp"
+)
 
 install(FILES
-        "${CMAKE_CURRENT_BINARY_DIR}/zmqpp_export.h"
-        DESTINATION "include")
+    "${CMAKE_CURRENT_BINARY_DIR}/zmqpp_export.h"
+    DESTINATION include/zmqpp
+)
+
+# Config dosyalarının kurulumu
+set(ZMQPP_CONFIG_INSTALL_DIR lib/cmake/zmqpp)
+
+configure_package_config_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/zmqppConfig.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/zmqppConfig.cmake"
+  INSTALL_DESTINATION ${ZMQPP_CONFIG_INSTALL_DIR}
+)
+
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/zmqppConfigVersion.cmake"
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion
+)
+
+install(EXPORT zmqppTargets
+    FILE zmqppTargets.cmake
+    NAMESPACE zmqpp::
+    DESTINATION ${ZMQPP_CONFIG_INSTALL_DIR}
+)
+
+install(FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/zmqppConfig.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/zmqppConfigVersion.cmake"
+  DESTINATION ${ZMQPP_CONFIG_INSTALL_DIR}
+)
